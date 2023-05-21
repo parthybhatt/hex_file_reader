@@ -77,12 +77,13 @@ typedef struct
 //#error "Add limit to avoid overflow in all places"
 static uint8_t memory[MAX_MEMORY_BYTES];
 static uint8_t* memPtr;
-static uint16_t memCounter = 0;
+static uint32_t TotalBytesInMem = 0;
+static uint16_t BytesInCurrentChunk = 0;
 
 /*******************************************************************************
 * Static Functions Declaration
 ********************************************************************************/
-
+// TODO: create an init function to reset all the variables
 static void LoadMemoryData(HexRecord_t* record, HexMemory_t* mem);
 static HexRecord_t ParseRecord(char* line);
 static uint32_t GetNum(char* line, uint16_t startLoc, uint16_t len);
@@ -91,6 +92,7 @@ static void DisplayRecord(HexRecord_t record);
 /*******************************************************************************
 * Public Functions
 ********************************************************************************/
+//TODO: Make it return an error type for more visibility 
 bool GetHexMemory(char* file_in, HexMemory_t* mem_out)
 {
     FILE* hexFile = fopen(file_in, "r");
@@ -103,9 +105,13 @@ bool GetHexMemory(char* file_in, HexMemory_t* mem_out)
     }
     
     char line[1024];
-    uint8_t i = 0;
     while (fgets(line, sizeof(line), hexFile) != NULL)
     {
+        if(strlen(line) <= 1)
+        {
+            continue;
+        }
+
         HexRecord_t record = ParseRecord(line);
 
         #if(DISPLAY_DEBUG_CODE==1)
@@ -113,11 +119,11 @@ bool GetHexMemory(char* file_in, HexMemory_t* mem_out)
         #endif
 
         LoadMemoryData(&record, mem_out);
-        if(i>3)
+
+        if(TotalBytesInMem >= MAX_MEMORY_BYTES)
         {
-            break;
+            return false;
         }
-        i++;
     }
     fclose(hexFile);
     
@@ -127,39 +133,47 @@ bool GetHexMemory(char* file_in, HexMemory_t* mem_out)
 /*******************************************************************************
 * Static Functions
 ********************************************************************************/
-
+#warning "the return type should tell if the data was loaded successfully" 
 static void LoadMemoryData(HexRecord_t* record, HexMemory_t* mem)
 {
     if( record->recordType == RECORD_TYPE_EXT_LINEAR_ADD )
     {
-        if(mem->memChunksInHexFile != 0)
+        if (mem->memChunksInHexFile < MAX_NUM_MEMORY_CHUNKS)
         {
-            mem->chunks[mem->memChunksInHexFile-1].size = memCounter-1;
-            memCounter = 0;
-        }
-        mem->chunks[mem->memChunksInHexFile].address = 0;
-        mem->chunks[mem->memChunksInHexFile].location = memPtr;
+            if(mem->memChunksInHexFile != 0)
+            {
+                mem->chunks[mem->memChunksInHexFile-1].size = BytesInCurrentChunk-1;
+                BytesInCurrentChunk = 0;
+            }
+            mem->chunks[mem->memChunksInHexFile].address = 0;
+            mem->chunks[mem->memChunksInHexFile].location = &memPtr[TotalBytesInMem];
 
-        int8_t idx = 0;        
-        while(idx < record->datalen)
-        {
-            mem->chunks[mem->memChunksInHexFile].address <<= 8;
-            mem->chunks[mem->memChunksInHexFile].address |=  record->data[idx];
-            idx++;
+            int8_t idx = 0;        
+            while(idx < record->datalen)
+            {
+                mem->chunks[mem->memChunksInHexFile].address <<= 8;
+                mem->chunks[mem->memChunksInHexFile].address |=  record->data[idx];
+                idx++;
+            }
+            mem->memChunksInHexFile++;
         }
-        mem->memChunksInHexFile++;
     }
     else if ( record->recordType == RECORD_TYPE_DATA )
     {
         for(uint8_t i = 0; i < record->datalen; i++)
         {
-            if(memCounter >= MAX_MEMORY_BYTES)
+            if(TotalBytesInMem >= MAX_MEMORY_BYTES)
             {
                 break;
             }
-            *memPtr = record->data[i];
-            memPtr++;
-            memCounter++;
+            memPtr[TotalBytesInMem] = record->data[i];
+            BytesInCurrentChunk++;
+            TotalBytesInMem++;
+            
+            if(TotalBytesInMem >= MAX_MEMORY_BYTES)
+            {
+                break;
+            }
         }
     }
 }
