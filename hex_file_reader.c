@@ -5,7 +5,14 @@
 
 * Date        : May 19, 2023
 
-* Description : 
+* Description : The module to extract the data from hex files and fill it up in a
+                dummy memory space. It supports reading hex files with non
+                contiguous memory. The data is saved in chunks in HexMemory_t 
+                datatype. If the memory in the hex file is contiguous, the 
+                function will only return one a struct with single chunk.
+
+* Note        : Current version can only read one hex file at a time. The hex data
+                will be erased if the second hex file is read. -- May 21, 2023 
 
 ********************************************************************************/
 
