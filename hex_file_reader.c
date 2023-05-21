@@ -75,15 +75,14 @@ typedef struct
 * Static Variables
 ********************************************************************************/
 //#error "Add limit to avoid overflow in all places"
-static uint8_t memory[MAX_MEMORY_BYTES];
-static uint8_t* memPtr;
-static uint32_t TotalBytesInMem = 0;
+static uint8_t HexMemBuffer[MAX_MEMORY_BYTES];
+static uint32_t NumBytesFilled = 0;
 static uint16_t BytesInCurrentChunk = 0;
 
 /*******************************************************************************
 * Static Functions Declaration
 ********************************************************************************/
-// TODO: create an init function to reset all the variables
+static void InitializeReader(HexMemory_t* mem);
 static void LoadMemoryData(HexRecord_t* record, HexMemory_t* mem);
 static HexRecord_t ParseRecord(char* line);
 static uint32_t GetNum(char* line, uint16_t startLoc, uint16_t len);
@@ -95,9 +94,8 @@ static void DisplayRecord(HexRecord_t record);
 //TODO: Make it return an error type for more visibility 
 bool GetHexMemory(char* file_in, HexMemory_t* mem_out)
 {
+    InitializeReader(mem_out);
     FILE* hexFile = fopen(file_in, "r");
-    memPtr = &memory[0];
-    memset(mem_out, 0, sizeof(HexMemory_t));
 
     if (hexFile == NULL)
     {
@@ -120,7 +118,7 @@ bool GetHexMemory(char* file_in, HexMemory_t* mem_out)
 
         LoadMemoryData(&record, mem_out);
 
-        if(TotalBytesInMem >= MAX_MEMORY_BYTES)
+        if(NumBytesFilled >= MAX_MEMORY_BYTES)
         {
             return false;
         }
@@ -133,6 +131,14 @@ bool GetHexMemory(char* file_in, HexMemory_t* mem_out)
 /*******************************************************************************
 * Static Functions
 ********************************************************************************/
+static void InitializeReader(HexMemory_t* mem_out)
+{
+    NumBytesFilled = 0;
+    BytesInCurrentChunk = 0;
+    memset(mem_out, 0, sizeof(HexMemory_t));
+    memset(HexMemBuffer, 0, MAX_MEMORY_BYTES);
+}
+
 #warning "the return type should tell if the data was loaded successfully" 
 static void LoadMemoryData(HexRecord_t* record, HexMemory_t* mem)
 {
@@ -146,7 +152,7 @@ static void LoadMemoryData(HexRecord_t* record, HexMemory_t* mem)
                 BytesInCurrentChunk = 0;
             }
             mem->chunks[mem->memChunksInHexFile].address = 0;
-            mem->chunks[mem->memChunksInHexFile].location = &memPtr[TotalBytesInMem];
+            mem->chunks[mem->memChunksInHexFile].location = &HexMemBuffer[NumBytesFilled];
 
             int8_t idx = 0;        
             while(idx < record->datalen)
@@ -162,15 +168,15 @@ static void LoadMemoryData(HexRecord_t* record, HexMemory_t* mem)
     {
         for(uint8_t i = 0; i < record->datalen; i++)
         {
-            if(TotalBytesInMem >= MAX_MEMORY_BYTES)
+            if(NumBytesFilled >= MAX_MEMORY_BYTES)
             {
                 break;
             }
-            memPtr[TotalBytesInMem] = record->data[i];
+            HexMemBuffer[NumBytesFilled] = record->data[i];
             BytesInCurrentChunk++;
-            TotalBytesInMem++;
-            
-            if(TotalBytesInMem >= MAX_MEMORY_BYTES)
+            NumBytesFilled++;
+
+            if(NumBytesFilled >= MAX_MEMORY_BYTES)
             {
                 break;
             }
