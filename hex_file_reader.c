@@ -74,7 +74,6 @@ typedef struct
 /*******************************************************************************
 * Static Variables
 ********************************************************************************/
-//#error "Add limit to avoid overflow in all places"
 static uint8_t HexMemBuffer[MAX_MEMORY_BYTES];
 static uint32_t NumBytesFilled = 0;
 static uint16_t BytesInCurrentChunk = 0;
@@ -83,7 +82,7 @@ static uint16_t BytesInCurrentChunk = 0;
 * Static Functions Declaration
 ********************************************************************************/
 static void InitializeReader(HexMemory_t* mem);
-static void LoadMemoryData(HexRecord_t* record, HexMemory_t* mem);
+static bool LoadMemoryData(HexRecord_t* record, HexMemory_t* mem);
 static HexRecord_t ParseRecord(char* line);
 static uint32_t GetNum(char* line, uint16_t startLoc, uint16_t len);
 static void DisplayRecord(HexRecord_t record);
@@ -92,14 +91,14 @@ static void DisplayRecord(HexRecord_t record);
 * Public Functions
 ********************************************************************************/
 //TODO: Make it return an error type for more visibility 
-bool GetHexMemory(char* file_in, HexMemory_t* mem_out)
+HexReaderStatus_t GetHexMemory(char* file_in, HexMemory_t* mem_out)
 {
     InitializeReader(mem_out);
     FILE* hexFile = fopen(file_in, "r");
 
     if (hexFile == NULL)
     {
-        return false;
+        return HEX_READER_STATUS_FAILED_TO_OPEN_FILE;
     }
     
     char line[1024];
@@ -116,16 +115,20 @@ bool GetHexMemory(char* file_in, HexMemory_t* mem_out)
         DisplayRecord(record);
         #endif
 
-        LoadMemoryData(&record, mem_out);
+        bool success = LoadMemoryData(&record, mem_out);
+        if(!success)
+        {
+            return HEX_READER_STATUS_FAILED_TO_LOAD_DATA;
+        }
 
         if(NumBytesFilled >= MAX_MEMORY_BYTES)
         {
-            return false;
+            return HEX_READER_STATUS_MEM_BUFFER_OVERFLOW;
         }
     }
     fclose(hexFile);
     
-    return true;
+    return HEX_READER_STATUS_FINISHED_READING_FILE;
 }
 
 /*******************************************************************************
@@ -139,9 +142,9 @@ static void InitializeReader(HexMemory_t* mem_out)
     memset(HexMemBuffer, 0, MAX_MEMORY_BYTES);
 }
 
-#warning "the return type should tell if the data was loaded successfully" 
-static void LoadMemoryData(HexRecord_t* record, HexMemory_t* mem)
+static bool LoadMemoryData(HexRecord_t* record, HexMemory_t* mem)
 {
+    bool retVal = false;
     if( record->recordType == RECORD_TYPE_EXT_LINEAR_ADD )
     {
         if (mem->memChunksInHexFile < MAX_NUM_MEMORY_CHUNKS)
@@ -162,26 +165,29 @@ static void LoadMemoryData(HexRecord_t* record, HexMemory_t* mem)
                 idx++;
             }
             mem->memChunksInHexFile++;
+            retVal = true;
+        }
+        else
+        {
+            retVal = false;
         }
     }
     else if ( record->recordType == RECORD_TYPE_DATA )
-    {
+    {       
+        retVal = true;
         for(uint8_t i = 0; i < record->datalen; i++)
         {
             if(NumBytesFilled >= MAX_MEMORY_BYTES)
             {
+                retVal = false;
                 break;
             }
             HexMemBuffer[NumBytesFilled] = record->data[i];
             BytesInCurrentChunk++;
             NumBytesFilled++;
-
-            if(NumBytesFilled >= MAX_MEMORY_BYTES)
-            {
-                break;
-            }
         }
     }
+    return retVal;
 }
 
 static HexRecord_t ParseRecord(char* line)

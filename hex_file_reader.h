@@ -38,6 +38,14 @@ typedef struct
     uint16_t memChunksInHexFile;
 } HexMemory_t;
 
+typedef enum
+{
+    HEX_READER_STATUS_FAILED_TO_OPEN_FILE,
+    HEX_READER_STATUS_FAILED_TO_LOAD_DATA,
+    HEX_READER_STATUS_MEM_BUFFER_OVERFLOW,
+    HEX_READER_STATUS_FINISHED_READING_FILE
+} HexReaderStatus_t;
+
 /*******************************************************************************
 * Global Variables
 ********************************************************************************/
@@ -46,6 +54,6 @@ typedef struct
 * Functions
 ********************************************************************************/
 
-bool GetHexMemory(char* file_in, HexMemory_t* mem_out);
+HexReaderStatus_t GetHexMemory(char* file_in, HexMemory_t* mem_out);
 
 #endif
