@@ -159,8 +159,13 @@ static bool LoadMemoryData(HexRecord_t* record, HexMemory_t* mem)
             if(mem->memChunksInHexFile != 0)
             {
                 mem->chunks[mem->memChunksInHexFile-1].size = BytesInCurrentChunk-1;
-                BytesInCurrentChunk = 0;
             }
+            else
+            {
+                mem->chunks[mem->memChunksInHexFile].size = 0;
+            }
+
+            BytesInCurrentChunk = 0;
             mem->chunks[mem->memChunksInHexFile].address = 0;
             mem->chunks[mem->memChunksInHexFile].location = &HexMemBuffer[NumBytesFilled];
 
@@ -193,6 +198,19 @@ static bool LoadMemoryData(HexRecord_t* record, HexMemory_t* mem)
             BytesInCurrentChunk++;
             NumBytesFilled++;
         }
+    }
+    else if(record->recordType == RECORD_TYPE_EOF)
+    {
+        if(mem->memChunksInHexFile != 0)
+        {
+            mem->chunks[mem->memChunksInHexFile-1].size = BytesInCurrentChunk-1;
+        }
+        else
+        {
+            //Ideally, should not get here since it should have one linear addressing
+            mem->chunks[mem->memChunksInHexFile].size = BytesInCurrentChunk-1;
+        }
+        retVal = true;
     }
     return retVal;
 }
