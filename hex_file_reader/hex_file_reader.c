@@ -31,7 +31,7 @@
 ********************************************************************************/
 #define DISPLAY_DEBUG_CODE      0
 
-#define MAX_MEMORY_BYTES        8192
+#define MAX_MEMORY_BYTES        1048575
 #define MAX_BYTES_PER_RECORD    32
 
 #define START_CODE_POS          0
